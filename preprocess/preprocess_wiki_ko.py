@@ -6,6 +6,9 @@ df = pd.read_csv('../data/processed_wiki_ko.txt', header=None, delimiter='\t')
 sent_list = list()
 
 for i, row in tqdm(enumerate(df.iterrows())):
+    """
+    Ref : https://github.com/likejazz/korean-sentence-splitter
+    """
     paragraph = str(row[1].values[0])
     sents = kss.split_sentences(paragraph)
     for j, sent in enumerate(sents):
