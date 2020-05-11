@@ -8,6 +8,10 @@ from time import time
 
 
 def clean_str(text):
+    """
+    [Ref1] : https://data-newbie.tistory.com/210  
+    [Ref2] : 
+    """
     #print("Original Sentence:", text)
 
     pattern = '([a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+)' # E-mail제거
