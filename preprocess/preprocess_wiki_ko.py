@@ -1,8 +1,8 @@
 import pandas as pd
 import kss
-import tqdm
+from tqdm import tqdm
 
-df = pd.read_csv('../data/processed_wiki_ko.txt', header=None, delimiter='\t') 
+df = pd.read_csv('../data/raw_wiki_ko.txt', header=None, delimiter='\t') 
 sent_list = list()
 
 for i, row in tqdm(enumerate(df.iterrows())):
@@ -14,7 +14,7 @@ for i, row in tqdm(enumerate(df.iterrows())):
     for j, sent in enumerate(sents):
         sent_list.append(sent)
 
-with open('../data/processed_wiki_ko_sent.txt', 'w', encoding='utf-8') as output:
+with open('../data/raw_wiki_ko_sent.txt', 'w', encoding='utf-8') as output:
     for sent in tqdm(sent_list):
         output.write(sent)
         output.write('\n')
