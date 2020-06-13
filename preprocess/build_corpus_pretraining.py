@@ -11,6 +11,7 @@ from collections import defaultdict
 import torch
 import numpy as np
 import pyxis as px
+from tqdm import tqdm
 
 sys.path.insert(0, '../')
 from consonant.model.tokenization import NGRAMTokenizer
@@ -130,11 +131,9 @@ class ExampleWriter(object):
 
     def write_examples(self, input_corpus):
         """Writes out examples from the provided input file."""
-        print(type(input_corpus))
         if isinstance(input_corpus, str):
-            print("str")
             with open(input_corpus, 'r') as f:
-                for line in f:
+                for line in tqdm(f):
                     line = line.strip()  # Remvoe return character
                     if line or self._blanks_separate_docs:
 
@@ -142,17 +141,13 @@ class ExampleWriter(object):
                         cleansed_line = clean_str(line)
                         if len(cleansed_line) < 1:
                             continue
-                        print(cleansed_line, len(cleansed_line))
                         example = self.tokenizer.encode(cleansed_line, self.max_char_length, return_attention_mask=True)
-                        print(example)
-                        raise ValueError("=-================")
                         if example:
                             self.add_example(example)
 
                             # If buffer exceed max_buffer_size write buffer to file system
                             if len(self.buffer['head_ids']) >= self.max_buffer_size:
                                 self.flush_buffer()
-        print("none")
 
     def add_example(self, example):
         for k, v in example.items():
@@ -161,10 +156,10 @@ class ExampleWriter(object):
 
     def flush_buffer(self):
         if len(self.buffer) > 0:
-            input_ids = np.array(self.buffer['input_ids'], dtype=np.int32)
-            input_mask = np.array(self.buffer['input_mask'], dtype=np.bool)
-            segment_ids = np.array(self.buffer['segment_ids'], dtype=np.bool)
-            self.writer.put_samples('input_ids', input_ids, 'input_mask', input_mask, 'segment_ids', segment_ids)
+            input_ids = np.array(self.buffer['head_ids'], dtype=np.int32)
+            midtail_ids = np.array(self.buffer['midtail_ids'], dtype=np.int32)
+            attention_masks = np.array(self.buffer['attention_masks'], dtype=np.bool)
+            self.writer.put_samples('head_ids', input_ids, 'midtail_ids', midtail_ids, 'attention_masks', attention_masks)
         self.buffer = defaultdict(list)
 
     def finish(self):
@@ -223,7 +218,7 @@ def main():
                         help="Location of data (vocab file, corpus, etc).")
     parser.add_argument("--ngram", default=3, type=int,
                         help="Number of n-gram for consonant tuples")
-    parser.add_argument("--max-char-length", default=128, type=int,
+    parser.add_argument("--max-char-length", default=100, type=int,
                       help="Number of tokens per example.")
     parser.add_argument("--num-processes", default=4, type=int,
                         help="Parallelize across multiple processes.")
@@ -248,6 +243,7 @@ def main():
     example_writer = ExampleWriter(0, args.output_dir, args.max_char_length, num_jobs=1, tokenizer=tokenizer, blanks_separate_docs=False)
 
     example_writer.write_examples(input_corpus=args.input_file)
+    example_writer.finish()
 
     # if args.num_processes == 1:
     #     write_examples(0, args)
