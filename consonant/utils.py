@@ -1,10 +1,5 @@
 import re
 
-import pandas as pd
-from tqdm import tqdm
-from time import time
-
-
 
 def clean_str(text):
     """
@@ -47,44 +42,8 @@ def clean_str(text):
 
     return text
 
-
-def cleansing_df(df, min_char_length):
-        
-    sent_list = list()
-    for i, row in tqdm(enumerate(df.iterrows())):
-        """
-        Ref : https://github.com/likejazz/korean-sentence-splitter
-        """
-        sent = str(row[1].values[0])
-        clean_sent = clean_str(sent)
-
-        if len(clean_sent) > min_char_length:
-            sent_list.append(clean_sent)
-
-    return sent_list
-
-def save_corpus(fname, sent_list):
-    with open(fname, 'w', encoding='utf-8') as output:
-        for sent in tqdm(sent_list):
-            output.write(sent)
-            output.write('\n\n')
-
-
 if __name__ == '__main__':
+    sent = "하이하이 ㅇㄴ은 너무 기분 조아!@@"
+    print(clean_str(sent))
 
-    ts = time()
-    min_char_length = 5
-
-    df1 = pd.read_csv('../data/raw_ratings.txt', header=None, delimiter='\t')
-    df2 = pd.read_csv('../data/raw_spoken.txt', header=None, delimiter='\t')
-    df3 = pd.read_csv('../data/raw_wiki_ko_sent.txt', header=None, delimiter='\t')
-
-    sent_list = cleansing_df(df1, min_char_length) + cleansing_df(df2, min_char_length) + cleansing_df(df3, min_char_length)
-    save_corpus('../data/clean_corpus.txt', sent_list)
-
-    te = time()
-    print(f"Took {te-ts} sec")
-
-
-    
-
+    # > 하이하이 은 너무 기분 조아!

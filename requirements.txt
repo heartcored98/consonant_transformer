@@ -1,8 +1,10 @@
 numpy
 pandas
 transformers
-torch
+torch # https://download.pytorch.org/whl/cu100/torch-1.4.0%2Bcu100-cp36-cp36m-linux_x86_64.whl
 cython
 kss
 tqdm
 matplotlib
+psutil # for monitoring
+https://github.com/vicolab/ml-pyxis/archive/master.zip # ml-pyxis installation. pip install ml-pyxis will throw error.

@@ -86,9 +86,10 @@ class NGRAMTokenizer():
             output = [item[key] for item in encoded_sent]
             return torch.Tensor(output, dtype=torch.int32) if return_tensors == 'pt' else np.vstack(output)
 
-        encoded_sent = list()
         if isinstance(sent_list, str):
-            encoded_sent.append(self.encode_sent(sent_list, max_char_length, return_attention_mask))
+            return self.encode_sent(sent_list, max_char_length, return_attention_mask)
+        
+        encoded_sent = list()
         for sent in sent_list:
             encoded_sent.append(self.encode_sent(sent, max_char_length, return_attention_mask))
             
