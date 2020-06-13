@@ -15,7 +15,7 @@ from tqdm import tqdm
 
 sys.path.insert(0, '../')
 from consonant.model.tokenization import NGRAMTokenizer
-from consonant.utils import clean_str
+from consonant.utils import clean_str, set_seed
 
 
 def rmkdir(dir_path):
@@ -133,21 +133,25 @@ class ExampleWriter(object):
         """Writes out examples from the provided input file."""
         if isinstance(input_corpus, str):
             with open(input_corpus, 'r') as f:
-                for line in tqdm(f):
-                    line = line.strip()  # Remvoe return character
-                    if line or self._blanks_separate_docs:
+                lines = f.readlines()
+        elif isinstance(input_corpus, list):
+            lines = input_corpus
 
-                        # Append line. example will return if the appended sentences reached max_char_length
-                        cleansed_line = clean_str(line)
-                        if len(cleansed_line) < 1:
-                            continue
-                        example = self.tokenizer.encode(cleansed_line, self.max_char_length, return_attention_mask=True)
-                        if example:
-                            self.add_example(example)
+        for line in tqdm(lines):
+            line = line.strip()  # Remvoe return character
+            if line or self._blanks_separate_docs:
 
-                            # If buffer exceed max_buffer_size write buffer to file system
-                            if len(self.buffer['head_ids']) >= self.max_buffer_size:
-                                self.flush_buffer()
+                # Append line. example will return if the appended sentences reached max_char_length
+                cleansed_line = clean_str(line)
+                if len(cleansed_line) < 1:
+                    continue
+                example = self.tokenizer.encode(cleansed_line, self.max_char_length, return_attention_mask=True)
+                if example:
+                    self.add_example(example)
+
+                    # If buffer exceed max_buffer_size write buffer to file system
+                    if len(self.buffer['head_ids']) >= self.max_buffer_size:
+                        self.flush_buffer()
 
     def add_example(self, example):
         for k, v in example.items():
@@ -222,6 +226,8 @@ def main():
                       help="Number of tokens per example.")
     parser.add_argument("--num-processes", default=4, type=int,
                         help="Parallelize across multiple processes.")
+    parser.add_argument("--seed", default=777, type=int,
+                        help="Initial Seed")
     # parser.add_argument("--do-lower-case", dest='do_lower_case',
     #                     action='store_true', help="Lower case input text.")
     # parser.add_argument("--no-lower-case", dest='do_lower_case',
@@ -238,13 +244,29 @@ def main():
 
     if not os.path.isdir(args.output_dir):
         rmkdir(args.output_dir)
+        rmkdir(args.output_dir + '/train')
+        rmkdir(args.output_dir+'/val')
 
+    # Read dataset and shuffle
+    set_seed(args)
+    with open(args.input_file, 'r') as f:
+        lines = f.readlines()
+        random.shuffle(lines)
+
+    # Split dataset into train/val 
+    train_lines = lines[:int(len(lines) * 0.8)]
+    val_lines = lines[int(len(lines) * 0.8):]
+
+    print("Train set: ", len(train_lines), "Val set: ", len(val_lines))
+                
     tokenizer = NGRAMTokenizer(3)
-    example_writer = ExampleWriter(0, args.output_dir, args.max_char_length, num_jobs=1, tokenizer=tokenizer, blanks_separate_docs=False)
-
-    example_writer.write_examples(input_corpus=args.input_file)
+    example_writer = ExampleWriter(0, args.output_dir+'/train', args.max_char_length, num_jobs=1, tokenizer=tokenizer, blanks_separate_docs=False)
+    example_writer.write_examples(input_corpus=train_lines)
     example_writer.finish()
 
+    example_writer = ExampleWriter(0, args.output_dir+'/val', args.max_char_length, num_jobs=1, tokenizer=tokenizer, blanks_separate_docs=False)
+    example_writer.write_examples(input_corpus=val_lines)
+    example_writer.finish()
     # if args.num_processes == 1:
     #     write_examples(0, args)
     # else:

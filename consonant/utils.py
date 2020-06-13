@@ -1,4 +1,7 @@
 import re
+import random
+import numpy as np
+import torch
 
 
 def clean_str(text):
@@ -41,6 +44,14 @@ def clean_str(text):
     #print("punctuation with whitespace removed:", text)
 
     return text
+
+
+def set_seed(args):
+    np.random.seed(args.seed)
+    torch.manual_seed(args.seed)
+    random.seed(args.seed)
+
+
 
 if __name__ == '__main__':
     sent = "하이하이 ㅇㄴ은 너무 기분 조아!@@"
