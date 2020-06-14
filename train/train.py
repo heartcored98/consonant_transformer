@@ -43,7 +43,7 @@ def make_parser():
 
     parser.add_argument('--pretrain_dataset_dir', default='../dataset/processed/ratings_3_100', type=str)
     parser.add_argument('--dataset_type', default='owt', type=str)
-    parser.add_argument('--exp_name', default='baseline_jy', type=str)
+    parser.add_argument('--exp_name', default='baseline', type=str)
 
     parser.add_argument('--output_dir', default='output', type=str)
     parser.add_argument('--gpus', default='0', type=str)
