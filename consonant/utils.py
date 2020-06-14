@@ -51,8 +51,6 @@ def set_seed(args):
     torch.manual_seed(args.seed)
     random.seed(args.seed)
 
-
-
 if __name__ == '__main__':
     sent = "하이하이 ㅇㄴ은 너무 기분 조아!@@"
     print(clean_str(sent))

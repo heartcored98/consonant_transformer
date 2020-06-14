@@ -3,5 +3,8 @@
 *ipynb_checkpoints*
 data
 *.pyc
+*.bin
+*.ckpt
 
 dataset/*
+output/*
