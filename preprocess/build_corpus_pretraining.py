@@ -257,9 +257,13 @@ def main():
     train_lines = lines[:int(len(lines) * 0.8)]
     val_lines = lines[int(len(lines) * 0.8):]
 
+    print("Ngram: ", args.ngram)
+    print("Max char lenght: ", args.max_char_length)
     print("Train set: ", len(train_lines), "Val set: ", len(val_lines))
                 
-    tokenizer = NGRAMTokenizer(3)
+    tokenizer = NGRAMTokenizer(args.ngram)
+    print("Head2id size: ", len(tokenizer.head2id))
+    print("Midtail2id size: ", len(tokenizer.midtail2id))
     example_writer = ExampleWriter(0, args.output_dir+'/train', args.max_char_length, num_jobs=1, tokenizer=tokenizer, blanks_separate_docs=False)
     example_writer.write_examples(input_corpus=train_lines)
     example_writer.finish()
