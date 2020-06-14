@@ -2,7 +2,8 @@ from itertools import product
 import re
 
 import numpy as np
-# import torch
+import torch
+
 
 from consonant.model.jamo import join_jamos
 
@@ -188,16 +189,30 @@ class NGRAMTokenizer():
 
         sent = ""
         for head, midtail in zip(head_ids, midtail_ids):
-            if head in [0, 1, 2, 3]:
-                continue
-            sent += join_jamos(self.id2head[head][position] + ''.join(self.id2midtail[midtail]))
 
+            # Skip [CLS], [SEP], [PAD] token during decoding
+            if head in [0, 1, 2]:
+                continue
+
+            # For korean character, accept the model's prediction of midtail. 
+            # Otherwise, ignore model output and accept original head consonant
+            head_char = self.id2head[head][position]
+            if re.match('.*[ㄱ-ㅎㅏ-ㅣ가-힣]+.*', head_char) is not None:
+                sent += join_jamos(head_char + ''.join(self.id2midtail[midtail]))
+            else:
+                sent += head_char
+            
+        # Finally, replace the unknown character to empty string
+        sent = sent.replace('@', '')
         return sent
     
 
 if __name__ == '__main__':
-    sentence = ["각나?", "힣"]
-    tokenizer = NGRAMTokenizer(4)
+
+    # sys.insert(0, '../../../')
+
+    sentence = ["각나? @hi나는 오늘 밥.! 먹었어", "힣"]
+    tokenizer = NGRAMTokenizer(3)
 
     print("Num Head Vocab:", len(tokenizer.head2id))
     print("Num  Mid Vocab:", len(tokenizer.midtail2id))
@@ -207,6 +222,10 @@ if __name__ == '__main__':
     midtail_ids = result['midtail_ids']
     attention_masks = result['attention_masks']
 
+    print()
+    print("Attention Mask")
+    print('->', attention_masks[0])
+
     print(head_ids, midtail_ids)
     print("Head Consonant ID")
     print('->', head_ids[0])
@@ -215,13 +234,16 @@ if __name__ == '__main__':
     print("Midtail Consonant ID")
     print('->', midtail_ids[0])
 
+    # Perturb midtail for non-korean character. 
+    # Decode ignores midtail for non-korean characters
+    midtail_ids[0][3] = 10
     print()
-    print("Attention Mask")
-    print('->', attention_masks[0])
-
-    print("=========================")
+    print("Perturbed Midtail Consonant ID")
+    print('->', midtail_ids[0])
 
     result = tokenizer.decode_sent(head_ids[0], midtail_ids[0])
+    print("=========================")
+    print(result)
 
-    print(tokenizer.replace_unknown_head('ㄱㄴ!^ㅎ'))
-    print(tokenizer.id2midtail[0])
+    # print(tokenizer.replace_unknown_head('ㄱㄴ!^ㅎ'))
+    # print(tokenizer.id2midtail[0])
