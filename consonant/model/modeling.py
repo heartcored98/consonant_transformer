@@ -57,6 +57,8 @@ class Consonant(nn.Module):
         
         outputs = (prediction_scores, ) + outputs[2:]  
 
+        answer_label[answer_label==0]=-100
+
         if answer_label is not None :
             loss_fct = CrossEntropyLoss()
             consonant_loss = loss_fct(prediction_scores.view(-1, self.config.output_vocab_size), answer_label.view(-1))
@@ -135,8 +137,9 @@ class ConsonantAlbert(pl.LightningModule):
 
         #print(logits.shape, answer_label.shape)
         labels_hat = torch.argmax(logits, dim=2)
+        labels_hat[answer_label==0]=0
         
-        val_acc = (torch.sum(answer_label==output[1].argmax(dim=2)).item() / torch.sum(answer_label!=-100).item())
+        val_acc = (torch.sum(answer_label==labels_hat).item() / torch.sum(answer_label!=-100).item())
 
         output = OrderedDict({
             "val_loss": output[0],
