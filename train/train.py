@@ -20,33 +20,34 @@ def make_parser():
     
     parser = argparse.ArgumentParser()
     #config setting
-    parser.add_argument('--hidden_size', default=256, type=int)
-    parser.add_argument('--embedding_size', default=64, type=int)
-    parser.add_argument('--num_attention_heads', default=4, type=int)
-    parser.add_argument('--intermediate_size', default=1024, type=int)
+    parser.add_argument('--classifier_dropout_prob', default=0.1, type=float)
+    parser.add_argument('--hidden_size', default=512, type=int)
+    parser.add_argument('--embedding_size', default=128, type=int)
+    parser.add_argument('--num_attention_heads', default=8, type=int)
+    parser.add_argument('--intermediate_size', default=2048, type=int)
     parser.add_argument('--vocab_size', default=17579, type=int)
     parser.add_argument('--max_position_embeddings', default=100, type=int)
     parser.add_argument('--output_vocab_size', default=589, type=int)
     parser.add_argument('--type_vocab_size', default=1, type=int)
     
     #exp setting
-    parser.add_argument('--learning_rate', default=5e-4, type=float)
+    parser.add_argument('--learning_rate', default=3e-4, type=float)
     parser.add_argument('--weight_decay', default=0.01, type=float)
     parser.add_argument('--adam_epsilon', default=1e-6, type=float)
-    parser.add_argument('--warmup_steps', default=10, type=int)
+    parser.add_argument('--warmup_steps', default=10000, type=int)
     parser.add_argument('--train_batch_size', default=128, type=int)
     parser.add_argument('--max_grad_norm', default=1.0, type=float)
     parser.add_argument('--max_steps', default=1000000, type=int)
-    parser.add_argument('--save_checkpoint_steps', default=100, type=int)
-    parser.add_argument('--validation_step', default=50, type=int)
+    parser.add_argument('--save_checkpoint_steps', default=1000, type=int)
+    parser.add_argument('--validation_step', default=1000, type=int)
     parser.add_argument('--save_log_steps', default=1, type=int)
 
     parser.add_argument('--pretrain_dataset_dir', default='/home/jovyan/dingbro/consonant_transformer/dataset/processed/ratings_3_100', type=str)
     parser.add_argument('--dataset_type', default='owt', type=str)
-    parser.add_argument('--exp_name', default='baseline', type=str)
+    parser.add_argument('--exp_name', default='baseline_07', type=str)
 
     parser.add_argument('--output_dir', default='output', type=str)
-    parser.add_argument('--gpus', default='0', type=str)
+    parser.add_argument('--gpus', default='7', type=str)
     parser.add_argument('--n_gpu', default=1, type=int)
     parser.add_argument(
         '--gradient_accumulation_steps',
@@ -72,6 +73,7 @@ def main():
     set_seed(args)
 
     albert_base_configuration = AlbertConfig(
+        classifier_dropout_prob = args.classifier_dropout_prob,
         hidden_size=args.hidden_size,
         embedding_size=args.embedding_size,
         num_attention_heads=args.num_attention_heads,
