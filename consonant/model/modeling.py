@@ -18,6 +18,7 @@ import pyxis.torch as pxt
 from torch.nn import CrossEntropyLoss
 from collections import OrderedDict
 import time
+import numpy as np
 
 
 class AlbertConsonantHead(nn.Module):
@@ -135,18 +136,18 @@ class ConsonantAlbert(pl.LightningModule):
         #print(logits.shape, answer_label.shape)
         labels_hat = torch.argmax(logits, dim=2)
         
-        correct_count = torch.sum(answer_label == labels_hat)
+        val_acc = (torch.sum(answer_label==output[1].argmax(dim=2)).item() / torch.sum(answer_label!=-100).item())
 
         output = OrderedDict({
             "val_loss": output[0],
-            "correct_count": correct_count,
+            "val_acc": val_acc,
             "batch_size": len(answer_label)
             })
         return output
 
 
     def validation_epoch_end(self, outputs):
-        val_acc = sum([out["correct_count"] for out in outputs]).float() / sum(out["batch_size"] for out in outputs)
+        val_acc = np.array([x['val_acc'] for x in outputs]).mean()
         val_loss = torch.stack([x['val_loss'] for x in outputs]).mean()
         '''tqdm_dict = {
                 "val_loss": val_loss,

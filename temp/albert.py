@@ -1,18 +1,24 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# In[35]:
+# In[1]:
 
 
 import transformers
 import torch.nn as nn
-from transformers import AlbertModel, AlbertConfig
+from transformers import AlbertModel, AlbertConfig, get_linear_schedule_with_warmup
 from transformers.modeling_bert import ACT2FN
 import torch
 from optimization import Lamb
+import argparse
+import os
+import easydict
+from torch.utils.data import DataLoader, ConcatDataset
+import pyxis.torch as pxt
+from torch.nn import CrossEntropyLoss
 
 
-# In[24]:
+# In[12]:
 
 
 class AlbertConsonantHead(nn.Module):
@@ -20,7 +26,7 @@ class AlbertConsonantHead(nn.Module):
         super().__init__()
 
         self.LayerNorm = nn.LayerNorm(config.embedding_size)
-        self.bias = nn.Parameter(torch.zeros(config.vocab_size))
+        self.bias = nn.Parameter(torch.zeros(config.output_vocab_size))
         self.dense = nn.Linear(config.hidden_size, config.embedding_size)
         self.decoder = nn.Linear(config.embedding_size, config.output_vocab_size)
         self.activation = ACT2FN[config.hidden_act]
@@ -37,13 +43,10 @@ class AlbertConsonantHead(nn.Module):
 
         return prediction_scores
 
-
-# In[26]:
-
-
 class Consonant(nn.Module):
     def __init__(self, config):
         super(Consonant, self).__init__()
+        self.config = config
         self.albert = AlbertModel(config)
         self.predictions = AlbertConsonantHead(config) 
 
@@ -52,18 +55,22 @@ class Consonant(nn.Module):
         sequence_output, pooled_output = outputs[:2]
         prediction_scores = self.predictions(sequence_output)
         
-        outputs = (prediction_scores) + outputs[2:]  
+        outputs = (prediction_scores, ) + outputs[2:]  
+        #print(prediction_scores.shape, answer_label.shape)
+        #print(prediction_scores.view(-1, self.config.output_vocab_size).shape, answer_label.view(-1).shape)
 
         if answer_label is not None :
             loss_fct = CrossEntropyLoss()
-            consonant_loss = loss_fct(prediction_scores.view(-1, self.config.vocab_size), answer_label.view(-1))
+            consonant_loss = loss_fct(prediction_scores.view(-1, self.config.output_vocab_size), answer_label.view(-1))
+            #consonant_loss = loss_fct(prediction_scores, answer_label)
+            #print(consonant_loss.shape, consonant_loss.mean())
             total_loss = consonant_loss
             outputs = (total_loss,) + outputs
 
         return outputs  
 
 
-# In[33]:
+# In[13]:
 
 
 albert_base_configuration = AlbertConfig(
@@ -80,11 +87,178 @@ albert_base_configuration = AlbertConfig(
 model = Consonant(albert_base_configuration)
 
 
-# In[37]:
+# In[14]:
 
 
-model
+model = model.cuda()
 
+
+# In[5]:
+
+
+def make_parser():
+    
+    parser = argparse.ArgumentParser("")
+    #config setting
+    parser.add_argument('--hidden_size', default=256, type=int)
+    parser.add_argument('--embedding_size', default=64, type=int)
+    parser.add_argument('--num_attention_heads', default=4, type=int)
+    parser.add_argument('--intermediate_size', default=1024, type=int)
+    parser.add_argument('--vocab_size', default=17579, type=int)
+    parser.add_argument('--max_position_embeddings', default=100, type=int)
+    parser.add_argument('--output_vocab_size', default=589, type=int)
+    parser.add_argument('--type_vocab_size', default=1, type=int)
+    
+    #exp setting
+    parser.add_argument('--learning_rate', default=5e-4, type=float)
+    parser.add_argument('--weight_decay', default=0.01, type=float)
+    parser.add_argument('--adam_epsilon', default=1e-6, type=float)
+    parser.add_argument('--warmup_steps', default=10, type=int)
+    parser.add_argument('--train_batch_size', default=128, type=int)
+    parser.add_argument('--max_grad_norm', default=1.0, type=float)
+    parser.add_argument('--max_steps', default=200, type=int)
+    parser.add_argument('--save_checkpoint_steps', default=100, type=int)
+    parser.add_argument('--validation_step', default=50, type=int)
+    parser.add_argument('--save_log_steps', default=1, type=int)
+
+    parser.add_argument('--pretrain_dataset_dir', default='../dataset/processed/ratings_3_100', type=str)
+    parser.add_argument('--dataset_type', default='owt', type=str)
+    parser.add_argument('--exp_name', default='baseline', type=str)
+
+    parser.add_argument('--output_dir', default='output', type=str)
+    parser.add_argument('--gpus', default='0', type=str)
+    parser.add_argument('--n_gpu', default=1, type=int)
+    parser.add_argument(
+        '--gradient_accumulation_steps',
+        type=int,
+        default=1,
+        help='Number of updates steps to accumulate before performing a backward/update pass.',
+    )
+    parser.add_argument('--seed', default=42, type=int, help='random seed for initialization')
+
+    parser.add_argument('--do_train', action='store_true')
+    parser.add_argument('--do_eval', action='store_true')
+
+    parser.add_argument('--num_workers', default=8, type=int)
+
+    args = parser.parse_args()
+
+    return args
+
+
+# In[6]:
+
+
+def train_dataloader(args):
+        
+    # We should filter out only directory name excluding all the *.tar.gz files
+    data_dir = os.path.join(args.pretrain_dataset_dir, 'train') 
+    subset_list = [subset_dir for subset_dir in os.listdir(data_dir) if os.path.isdir(os.path.join(data_dir, subset_dir))]
+    train_dataset = ConcatDataset([pxt.TorchDataset(os.path.join(data_dir, subset_dir)) for subset_dir in subset_list])
+
+    # Very small dataset for debugging
+    # toy_dataset = Subset(train_dataset, range(0, 100)) # -> If you want to make 100sample toy dataset. 
+
+    data_loader = DataLoader(
+        train_dataset,
+        batch_size=args.train_batch_size,
+        num_workers=args.num_workers,
+        pin_memory=True,
+        shuffle=True
+    )
+
+    scheduler = get_linear_schedule_with_warmup(
+        args.opt, num_warmup_steps=args.warmup_steps, num_training_steps=args.max_steps
+    )
+    args.lr_scheduler = scheduler
+    return data_loader
+
+
+# In[7]:
+
+
+args = easydict.EasyDict({
+    "pretrain_dataset_dir": '../dataset/processed/ratings_3_100',
+    "train_batch_size": 128,
+    "num_workers": 0,
+    "warmup_steps": 100,
+    "max_steps": 1000,
+    "adam_epsilon":1e-6,
+    "weight_decay":1e-8,
+    "learning_rate":1e-4
+})
+
+
+# In[8]:
+
+
+no_decay = ["bias", "LayerNorm.weight"]
+optimizer_grouped_parameters = [
+    {
+        "params": [p for n, p in model.named_parameters() if not any(nd in n for nd in no_decay)],
+        "weight_decay": args.weight_decay,
+    },
+    {
+        "params": [p for n, p in model.named_parameters() if any(nd in n for nd in no_decay)],
+        "weight_decay": 0.0,
+    },
+]
+
+optimizer = Lamb(optimizer_grouped_parameters, lr=args.learning_rate, betas=(.9, .999), eps=args.adam_epsilon, adam=True)
+
+
+# In[9]:
+
+
+args['opt'] = optimizer
+
+
+# In[10]:
+
+
+trainloader = train_dataloader(args)
+
+
+# In[15]:
+
+
+for batch in trainloader:
+    input_ids = batch['head_ids'].type(torch.LongTensor).cuda()
+    answer_label = batch['midtail_ids'].type(torch.LongTensor).cuda()  
+    attention_mask = batch['attention_masks'].type(torch.LongTensor).cuda()  
+    
+    print(input_ids.shape, attention_mask.shape,  answer_label.shape)
+    output = model(input_ids, attention_mask=attention_mask, token_type_ids=None, answer_label=answer_label)
+    output[0].backward()
+    optimizer
+    break
+
+
+# In[27]:
+
+
+output[1].argmax(dim=2).shape
+
+
+# In[40]:
+
+
+(torch.sum(answer_label==output[1].argmax(dim=2)).item() / torch.sum(answer_label!=-100).item())
+
+
+# In[38]:
+
+
+torch.sum(answer_label==output[1].argmax(dim=2))
+
+
+# In[39]:
+
+
+torch.sum(answer_label!=-100)
+
+
+# # pl
 
 # In[ ]:
 
