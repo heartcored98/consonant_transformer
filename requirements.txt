@@ -6,5 +6,8 @@ cython
 kss
 tqdm
 matplotlib
+pytorch
+pytorch-lightning
+neptune-client
 psutil # for monitoring
 https://github.com/vicolab/ml-pyxis/archive/master.zip # ml-pyxis installation. pip install ml-pyxis will throw error.

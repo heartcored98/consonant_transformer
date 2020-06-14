@@ -36,12 +36,12 @@ def make_parser():
     parser.add_argument('--warmup_steps', default=10, type=int)
     parser.add_argument('--train_batch_size', default=128, type=int)
     parser.add_argument('--max_grad_norm', default=1.0, type=float)
-    parser.add_argument('--max_steps', default=200, type=int)
+    parser.add_argument('--max_steps', default=1000000, type=int)
     parser.add_argument('--save_checkpoint_steps', default=100, type=int)
     parser.add_argument('--validation_step', default=50, type=int)
     parser.add_argument('--save_log_steps', default=1, type=int)
 
-    parser.add_argument('--pretrain_dataset_dir', default='../dataset/processed/ratings_3_100', type=str)
+    parser.add_argument('--pretrain_dataset_dir', default='/home/jovyan/dingbro/consonant_transformer/dataset/processed/ratings_3_100', type=str)
     parser.add_argument('--dataset_type', default='owt', type=str)
     parser.add_argument('--exp_name', default='baseline_jy', type=str)
 
@@ -123,7 +123,9 @@ def main():
         gradient_clip_val=args.max_grad_norm,
         logger=neptune_logger,
         early_stop_callback=None,
-        val_check_interval = args.validation_step,
+        val_check_interval=args.validation_step,
+        checkpoint_callback=False,
+        max_steps=args.max_steps
     )
 
     trainer = pl.Trainer(profiler=False, **train_params)

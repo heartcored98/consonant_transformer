@@ -13,7 +13,7 @@ from .optimization import Lamb
 import pytorch_lightning as pl
 import argparse
 import os
-from torch.utils.data import DataLoader, ConcatDataset
+from torch.utils.data import DataLoader, ConcatDataset, Subset
 import pyxis.torch as pxt
 from torch.nn import CrossEntropyLoss
 from collections import OrderedDict
@@ -113,8 +113,13 @@ class ConsonantAlbert(pl.LightningModule):
                          'scheduler_state_dict' : self.lr_scheduler.state_dict(),
                          'loss': output[0].item()
                         }, ckpt_dir)
-           
+
+        # Save model to neptune.ai server. 
+        # Try-catch HTTPConnection Error
+        try:   
             self.logger.log_artifact(ckpt_dir, ckpt_dir)
+        except:
+            pass
 
         return {'loss': output[0]}
     
@@ -193,7 +198,7 @@ class ConsonantAlbert(pl.LightningModule):
         train_dataset = ConcatDataset([pxt.TorchDataset(os.path.join(data_dir, subset_dir)) for subset_dir in subset_list])
 
         # Very small dataset for debugging
-        # toy_dataset = Subset(train_dataset, range(0, 100)) # -> If you want to make 100sample toy dataset. 
+        # train_dataset = Subset(train_dataset, range(0, 2000)) # -> If you want to make 100sample toy dataset. 
 
         data_loader = DataLoader(
             train_dataset,
@@ -214,13 +219,13 @@ class ConsonantAlbert(pl.LightningModule):
         # We should filter out only directory name excluding all the *.tar.gz files
         data_dir = os.path.join(self.hparams.pretrain_dataset_dir, 'val') 
         subset_list = [subset_dir for subset_dir in os.listdir(data_dir) if os.path.isdir(os.path.join(data_dir, subset_dir))]
-        train_dataset = ConcatDataset([pxt.TorchDataset(os.path.join(data_dir, subset_dir)) for subset_dir in subset_list])
+        val_dataset = ConcatDataset([pxt.TorchDataset(os.path.join(data_dir, subset_dir)) for subset_dir in subset_list])
 
         # Very small dataset for debugging
-        # toy_dataset = Subset(train_dataset, range(0, 100)) # -> If you want to make 100sample toy dataset. 
+        # val_dataset = Subset(val_dataset, range(0, 1000)) # -> If you want to make 100sample toy dataset. 
 
         data_loader = DataLoader(
-            train_dataset,
+            val_dataset,
             batch_size=self.hparams.train_batch_size,
             num_workers=self.hparams.num_workers,
             pin_memory=True,
