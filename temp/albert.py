@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# In[28]:
+# In[35]:
 
 
 import transformers
@@ -9,6 +9,7 @@ import torch.nn as nn
 from transformers import AlbertModel, AlbertConfig
 from transformers.modeling_bert import ACT2FN
 import torch
+from optimization import Lamb
 
 
 # In[24]:
@@ -79,6 +80,12 @@ albert_base_configuration = AlbertConfig(
 model = Consonant(albert_base_configuration)
 
 
+# In[37]:
+
+
+model
+
+
 # In[ ]:
 
 
@@ -108,12 +115,11 @@ class ConsonantAlbert(pl.LightningModule):
             self.logger.experiment.log_metric('learning_rate', self.global_step, self.lr_scheduler.get_last_lr()[-1])
             self.last_time = time.time()
 
-        input_ids = batch['input_ids']
-        answer_label = batch['answer_label']
-        attention_mask = batch['attention_mask']
-        token_type_ids = batch['token_type_ids']
+        input_ids = batch['head_ids']
+        answer_label = batch['midtail_ids']
+        attention_mask = batch['attention_masks']
 
-        output = self.model(input_ids, attention_mask, token_type_ids, answer_label)
+        output = self.model(input_ids, attention_mask, answer_label)
         # output = self.model(input_ids, attention_mask, token_type_ids, masked_lm_labels)
 
         self.logger.experiment.log_metric('Total_loss', self.global_step, output[0].item())
@@ -135,12 +141,11 @@ class ConsonantAlbert(pl.LightningModule):
         return {'loss': output[0]}
     
     def validation_step(self, batch, batch_idx):
-        input_ids = batch['input_ids']
-        answer_label = batch['answer_label']
-        attention_mask = batch['attention_mask']
-        token_type_ids = batch['token_type_ids']
+        input_ids = batch['head_ids']
+        answer_label = batch['midtail_ids']
+        attention_mask = batch['attention_masks']
 
-        output = self.model(input_ids, attention_mask, token_type_ids, answer_label)
+        output = self.model(input_ids, attention_mask, answer_label)
         logits = output[1]
         labels_hat = torch.argmax(logits, dim=1)
         
@@ -187,7 +192,8 @@ class ConsonantAlbert(pl.LightningModule):
                 "weight_decay": 0.0,
             },
         ]
-        optimizer = AdamW(optimizer_grouped_parameters, lr=self.hparams.learning_rate, eps=self.hparams.adam_epsilon)
+        optimizer = Lamb(optimizer_grouped_parameters, lr=args.hparams.learning_rate, betas=(.9, .999), eps=self.hparams.adam_epsilonm, adam=True)
+        #optimizer = AdamW(optimizer_grouped_parameters, lr=self.hparams.learning_rate, eps=self.hparams.adam_epsilon)
         self.opt = optimizer
         return [optimizer]
 
@@ -419,4 +425,341 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+
+# In[36]:
+
+
+get_ipython().system('which python')
+
+
+# In[ ]:
+
+
+import os
+import time
+import copy
+
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+
+import pytorch_lightning as pl
+import argparse
+
+import pyxis.torch as pxt
+
+from transformers import (
+    AdamW,
+    ElectraPreTrainedModel,
+    ElectraForMaskedLM,
+    ElectraForPreTraining,
+    ElectraTokenizer,
+    get_linear_schedule_with_warmup,
+)
+
+import sys
+sys.path.append('../')
+
+from data_collator import DataCollatorForLanguageModeling
+
+from torch.utils.data.dataloader import DataLoader
+from torch.utils.data.dataset import ConcatDataset, Subset
+from torch.utils.data.sampler import RandomSampler
+
+BertLayerNorm = torch.nn.LayerNorm
+
+
+class BertEmbeddings(nn.Module):
+    """Construct the embeddings from word, position and token_type embeddings.
+    """
+
+    def __init__(self, config):
+        super().__init__()
+        self.word_embeddings = nn.Embedding(config.vocab_size, config.hidden_size, padding_idx=config.pad_token_id)
+        self.position_embeddings = nn.Embedding(config.max_position_embeddings, config.hidden_size)
+        self.token_type_embeddings = nn.Embedding(config.type_vocab_size, config.hidden_size)
+
+        # self.LayerNorm is not snake-cased to stick with TensorFlow model variable name and be able to load
+        # any TensorFlow checkpoint file
+        self.LayerNorm = BertLayerNorm(config.hidden_size, eps=config.layer_norm_eps)
+        self.dropout = nn.Dropout(config.hidden_dropout_prob)
+
+    def forward(self, input_ids=None, token_type_ids=None, position_ids=None, inputs_embeds=None):
+        if input_ids is not None:
+            input_shape = input_ids.size()
+        else:
+            input_shape = inputs_embeds.size()[:-1]
+
+        seq_length = input_shape[1]
+        device = input_ids.device if input_ids is not None else inputs_embeds.device
+        if position_ids is None:
+            position_ids = torch.arange(seq_length, dtype=torch.long, device=device)
+            position_ids = position_ids.unsqueeze(0).expand(input_shape)
+        if token_type_ids is None:
+            token_type_ids = torch.zeros(input_shape, dtype=torch.long, device=device)
+
+        if inputs_embeds is None:
+            inputs_embeds = self.word_embeddings(input_ids)
+        position_embeddings = self.position_embeddings(position_ids)
+        token_type_embeddings = self.token_type_embeddings(token_type_ids)
+
+        embeddings = inputs_embeds + position_embeddings + token_type_embeddings
+        embeddings = self.LayerNorm(embeddings)
+        embeddings = self.dropout(embeddings)
+        return embeddings
+
+class ElectraEmbeddings(BertEmbeddings):
+    """Construct the embeddings from word, position and token_type embeddings."""
+
+    def __init__(self, config):
+        super().__init__(config)
+        self.word_embeddings = nn.Embedding(config.vocab_size, config.embedding_size, padding_idx=config.pad_token_id)
+        self.position_embeddings = nn.Embedding(config.max_position_embeddings, config.embedding_size)
+        self.token_type_embeddings = nn.Embedding(config.type_vocab_size, config.embedding_size)
+
+        # self.LayerNorm is not snake-cased to stick with TensorFlow model variable name and be able to load
+        # any TensorFlow checkpoint file
+        self.LayerNorm = BertLayerNorm(config.embedding_size, eps=config.layer_norm_eps)
+
+
+class Electra(ElectraPreTrainedModel):
+    def __init__(self, config):
+        super().__init__(config)
+
+        self.config = config
+
+        self.discriminator_config = copy.deepcopy(config)
+        self.generator_config = copy.deepcopy(config)
+
+        self.generator_config.num_hidden_layers = self.config.generator_num_hidden_layers
+
+        self.generator_config.hidden_size //= self.config.multiplier_generator_and_discriminator
+        self.generator_config.intermediate_size //= self.config.multiplier_generator_and_discriminator
+        self.generator_config.num_attention_heads //= self.config.multiplier_generator_and_discriminator
+        
+        self.generator = ElectraForMaskedLM(self.generator_config)
+        self.discriminator = ElectraForPreTraining(self.discriminator_config)
+
+        if self.config.weight_sharing_degree == 'embedding':
+            self.embedding = ElectraEmbeddings(self.config)
+            self.generator.electra.embeddings = self.embedding
+            self.discriminator.electra.embeddings = self.embedding
+        
+        elif self.config.weight_sharing_degree == 'all':
+            raise NotImplementedError('In case of sharing all weights')
+
+        self.init_weights()
+
+        print(self.generator)
+        print(self.discriminator)
+        
+        print("======== Generator Config ========")
+        print(self.generator_config)
+
+        print("======== Discriminator Config ========")
+        print(self.discriminator_config)
+
+    def forward(
+        self,
+        input_ids=None,
+        attention_mask=None,
+        token_type_ids=None,
+        masked_lm_labels=None,
+        logger=None,
+        global_step=None,
+    ):
+
+        batch_size = input_ids.shape[0]
+        seq_len = input_ids.shape[1]
+        
+        # Generator forward
+        MLM_loss, MLM_prediction_scores = self.generator(
+            input_ids=input_ids,
+            attention_mask=attention_mask,
+            token_type_ids=token_type_ids,
+            masked_lm_labels=masked_lm_labels
+        )
+        logger.experiment.log_metric('MLM_loss', MLM_loss.item())
+
+        ## Prepare discriminator input and RTD labels, adding uniform noise to generator's logits
+        uniform_noise = torch.rand(MLM_prediction_scores.shape, device=self.device)
+        gumbel_noise = -(-(uniform_noise + 1e-9).log() + 1e-9).log()
+
+        sampled_prediction_scores = MLM_prediction_scores + gumbel_noise
+        sampled_argmax_words = F.softmax(sampled_prediction_scores, dim=-1).argmax(dim=-1)
+        sampled_input_ids_to_discriminator = sampled_argmax_words * (masked_lm_labels != -100) + input_ids * (masked_lm_labels == -100)
+        sampled_RTD_labels = (sampled_input_ids_to_discriminator != masked_lm_labels) * (masked_lm_labels != -100)
+
+        # Discriminator Forward
+        RTD_loss, RTD_prediction_scores = self.discriminator(
+            input_ids=sampled_input_ids_to_discriminator,
+            attention_mask=attention_mask,
+            token_type_ids=token_type_ids,
+            labels=sampled_RTD_labels,
+        )
+        logger.experiment.log_metric('RTD_loss', global_step, RTD_loss.item())
+
+
+        if global_step % self.config.save_log_steps == 0:
+            # Evaluate Generator's MLM performance based on initial prediction scores
+            argmax_words = F.softmax(MLM_prediction_scores, dim=-1).argmax(dim=-1)
+            input_ids_to_discriminator = argmax_words * (masked_lm_labels != -100) + input_ids * (masked_lm_labels == -100) # -> masked 된 토큰들만 generator로 바뀐 것.
+            RTD_labels = (input_ids_to_discriminator != masked_lm_labels) * (masked_lm_labels != -100)
+
+            incorrect_masked_word = RTD_labels.sum().item() # Since True means incorrect word in RTD_labels
+            total_masked_word = (masked_lm_labels != -100).sum().item()
+            sampled_incorrect_masked_word = sampled_RTD_labels.sum().item()
+            logger.experiment.log_metric('MLM_accuracy', global_step, (total_masked_word - incorrect_masked_word) / total_masked_word * 100)
+            logger.experiment.log_metric('Sampled_MLM_accuracy', global_step, (total_masked_word - sampled_incorrect_masked_word) / total_masked_word * 100)
+
+            # Calculate classification metric
+            RTD_preds = RTD_prediction_scores.sigmoid() >= 0.5
+            correct_true = ((RTD_preds == RTD_labels) * (RTD_preds == 1)).sum().item()
+            predicted_true = RTD_preds.sum().item()
+            target_true = RTD_labels.sum().item()
+
+            recall = correct_true / target_true if target_true > 0 else 0
+            precision = correct_true / predicted_true if predicted_true > 0 else 0
+            f1_score = 2 * precision * recall / (precision + recall) if (precision + recall) > 0 else 0
+
+            logger.experiment.log_metric('RTD_accuracy', global_step, (RTD_preds == RTD_labels).sum().item() / (batch_size * seq_len) * 100)
+            logger.experiment.log_metric('RTD_precision', global_step, precision * 100)
+            logger.experiment.log_metric('RTD_recall', global_step, recall * 100)
+            logger.experiment.log_metric('RTD_f1', global_step, f1_score * 100)
+
+        loss = MLM_loss + self.config.rtd_loss_weight * RTD_loss
+        output = (loss, RTD_prediction_scores)
+        return output
+
+    
+class BaseElectra(pl.LightningModule):
+    def __init__(self, hparams: argparse.Namespace, config):
+        super().__init__()
+
+        self.hparams = hparams
+        self.config = config
+
+        self.tokenizer = ElectraTokenizer.from_pretrained('google/electra-small-discriminator')
+        self.model = Electra(config)
+
+    def forward(self, x):
+        pass
+
+    def training_step(self, batch, batch_idx):
+        # Log steps_per_sec every 100 steps
+        if self.global_step == 0:
+            self.last_time = time.time()
+
+        elif self.global_step % self.hparams.save_log_steps == 0:
+            steps_per_sec = self.hparams.save_log_steps / int(time.time() - self.last_time)
+            examples_per_sec = steps_per_sec * self.hparams.train_batch_size
+            self.logger.experiment.log_metric('steps_per_sec', self.global_step, steps_per_sec)
+            self.logger.experiment.log_metric('examples_per_sec', self.global_step, examples_per_sec)
+            self.logger.experiment.log_metric('learning_rate', self.global_step, self.lr_scheduler.get_last_lr()[-1])
+            self.last_time = time.time()
+
+        input_ids = batch['input_ids']
+        masked_lm_labels = batch['masked_lm_labels']
+        attention_mask = batch['attention_mask']
+        token_type_ids = batch['token_type_ids']
+
+        output = self.model(input_ids, attention_mask, token_type_ids, masked_lm_labels, self.logger, self.global_step)
+        # output = self.model(input_ids, attention_mask, token_type_ids, masked_lm_labels)
+
+        self.logger.experiment.log_metric('Total_loss', output[0].item())
+
+        # Save model and optimizer
+        if self.global_step % self.hparams.save_checkpoint_steps == 0 and self.global_step != 0:
+
+            ckpt = f'ckpt-{self.global_step:07}'
+            ckpt_dir = os.path.join(self.hparams.output_dir, ckpt)
+            generator_dir = os.path.join(ckpt_dir, 'generator')
+            discriminator_dir = os.path.join(ckpt_dir, 'discriminator')
+            optimizer_dir = os.path.join(ckpt_dir, 'optimizer.pt')
+            
+            os.mkdir(ckpt_dir)
+            os.mkdir(generator_dir)
+            os.mkdir(discriminator_dir)
+
+            # save artifact to local disk
+            self.model.generator.save_pretrained(generator_dir)
+            self.model.discriminator.save_pretrained(discriminator_dir)
+            torch.save(self.opt.state_dict(), optimizer_dir)
+
+            # upload artifact to neptune server
+            self.logger.log_artifact(os.path.join(generator_dir, 'config.json'), os.path.join(ckpt, 'generator/config.json'))
+            self.logger.log_artifact(os.path.join(generator_dir, 'pytorch_model.bin'), os.path.join(ckpt, 'generator/pytorch_model.bin'))
+            self.logger.log_artifact(os.path.join(discriminator_dir, 'config.json'), os.path.join(ckpt, 'discriminator/config.json'))
+            self.logger.log_artifact(os.path.join(discriminator_dir, 'pytorch_model.bin'), os.path.join(ckpt, 'discriminator/pytorch_model.bin'))
+            self.logger.log_artifact(os.path.join(ckpt_dir, 'optimizer.pt'), os.path.join(ckpt, 'optimizer.pt'))
+        
+        return {'loss': output[0]}
+
+    def configure_optimizers(self):
+        "Prepare optimizer and schedule (linear warmup and decay)"
+
+        model = self.model
+        no_decay = ["bias", "LayerNorm.weight"]
+        optimizer_grouped_parameters = [
+            {
+                "params": [p for n, p in model.named_parameters() if not any(nd in n for nd in no_decay)],
+                "weight_decay": self.hparams.weight_decay,
+            },
+            {
+                "params": [p for n, p in model.named_parameters() if any(nd in n for nd in no_decay)],
+                "weight_decay": 0.0,
+            },
+        ]
+        optimizer = AdamW(optimizer_grouped_parameters, lr=self.hparams.learning_rate, eps=self.hparams.adam_epsilon)
+        self.opt = optimizer
+        return [optimizer]
+
+    def optimizer_step(self, epoch, batch_idx, optimizer, optimizer_idx, second_order_closure=None):
+        optimizer.step()
+        optimizer.zero_grad()
+        self.lr_scheduler.step()
+
+    def get_tqdm_dict(self):
+        avg_loss = getattr(self.trainer, "avg_loss", 0.0)
+        tqdm_dict = {"loss": "{:.3f}".format(avg_loss), "lr": self.lr_scheduler.get_last_lr()[-1]}
+        return tqdm_dict
+
+    def train_dataloader(self):
+        train_batch_size = self.hparams.train_batch_size
+        
+        if self.hparams.dataset_type == 'owt':
+            data_dir = os.path.join(self.hparams.pretrain_dataset_dir, 'openwebtext_lmdb_128')
+        else:
+            raise NotImplementedError('Bookcorpus, Wiki dataset is not implemented')
+
+        # We should filter out only directory name excluding all the *.tar.gz files
+        subset_list = [subset_dir for subset_dir in os.listdir(data_dir) if os.path.isdir(os.path.join(data_dir, subset_dir))]
+
+        train_dataset = ConcatDataset([pxt.TorchDataset(os.path.join(data_dir, subset_dir)) for subset_dir in subset_list])
+        # train_dataset = Subset(train_dataset, range(0, 2))
+        # assert len(train_dataset) == 48185029, "length of dataset size is not matched!" # -> This should be 48185029 lines
+
+        # Very small dataset for debugging
+        # train_dataset = pxt.TorchDataset(os.path.join('../dataset', 'openwebtext_lmdb_128/1_of_14'))
+        # train_dataset = torch.utils.data.Subset(train_dataset, list(range(0, 1024)))
+
+        data_collator = DataCollatorForLanguageModeling(
+            tokenizer=self.tokenizer, mlm=self.hparams.mlm, mlm_probability=self.hparams.mlm_probability
+        )
+
+        data_loader = DataLoader(
+            train_dataset,
+            batch_size=train_batch_size,
+            collate_fn=data_collator.collate_batch,
+            num_workers=self.hparams.num_workers,
+            pin_memory=True,
+            shuffle=True
+        )
+
+        scheduler = get_linear_schedule_with_warmup(
+            self.opt, num_warmup_steps=self.hparams.warmup_steps, num_training_steps=self.hparams.max_steps
+        )
+        self.lr_scheduler = scheduler
+        return data_loader
 
