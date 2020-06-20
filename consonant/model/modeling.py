@@ -119,8 +119,10 @@ class ConsonantAlbert(pl.LightningModule):
             ckpt_dir = os.path.join(self.hparams.output_dir, ckpt)
             torch.save( {'model_state_dict': self.model.state_dict(), 
                          'optimizer_state_dict': self.opt.state_dict(),
-                         'scheduler_state_dict' : self.lr_scheduler.state_dict(),
-                         'loss': output[0].item()
+                         'scheduler_state_dict': self.lr_scheduler.state_dict(),
+                         'config_dict': vars(self.config),
+                         'loss': output[0].item(),
+                         'ngram': self.hparams.ngram,
                         }, ckpt_dir)
 
         # Save model to neptune.ai server. 

@@ -125,11 +125,11 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--data-dir", default="/home/whwodud98/consonant_transformer/dataset",
                         help="Location of data (vocab file, corpus, etc).")
-    parser.add_argument("--input-file", default="news_comments_0.txt", type=str,
+    parser.add_argument("--input-file", default="news_comments_1.txt", type=str,
                         help="Location of data (vocab file, corpus, etc).")
     parser.add_argument("--output-dir-prefix", default="comments", type=str,
                         help="Location of data (vocab file, corpus, etc).")
-    parser.add_argument("--ngram", default=1, type=int,
+    parser.add_argument("--ngram", default=3, type=int,
                         help="Number of n-gram for consonant tuples")
     parser.add_argument("--train-ratio", default=0.9, type=float,
                         help="train-val ratio")
