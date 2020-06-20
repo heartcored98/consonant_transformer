@@ -35,20 +35,20 @@ def make_parser():
     parser.add_argument('--classifier_dropout_prob', default=0.1, type=float)
 
     # train/validation configuration
-    parser.add_argument('--train_batch_size', default=390, type=int)
+    parser.add_argument('--train_batch_size', default=780, type=int)
     parser.add_argument('--learning_rate', default=3e-4, type=float)
     parser.add_argument('--adam_epsilon', default=1e-6, type=float)
     parser.add_argument('--warmup_steps', default=10000, type=int)
     parser.add_argument('--weight_decay', default=0.01, type=float)
     parser.add_argument('--max_grad_norm', default=1.0, type=float)
     parser.add_argument('--max_steps', default=1000000, type=int)
-    parser.add_argument('--save_checkpoint_steps', default=100, type=int)
-    parser.add_argument('--validation_step', default=20000, type=int)
-    parser.add_argument('--save_log_steps', default=50, type=int)
+    parser.add_argument('--save_checkpoint_steps', default=3000, type=int)
+    parser.add_argument('--validation_step', default=0, type=int)
+    parser.add_argument('--save_log_steps', default=100, type=int)
     parser.add_argument('--grad_accum_steps', type=int, default=1)
 
     # experiment configuration
-    parser.add_argument('--exp_name', default='comment_baseline_b390_savecheck', type=str)
+    parser.add_argument('--exp_name', default='comment_baseline_b780', type=str)
     parser.add_argument('--pretrain_dataset_dir', default='/home/whwodud98/consonant_transformer/dataset/processed/comments_3_100', type=str)
     parser.add_argument('--output_dir', default='output', type=str)
     parser.add_argument('--gpus', default='0', type=str)
@@ -105,7 +105,7 @@ def main():
         gradient_clip_val=args.max_grad_norm,
         early_stop_callback=None,
         checkpoint_callback=False,
-        val_check_interval=args.validation_step,
+        # val_check_interval=args.validation_step,
         accumulate_grad_batches=args.grad_accum_steps,
         max_steps=args.max_steps,
         benchmark=args.benchmark,
@@ -128,7 +128,7 @@ def main():
     model = ConsonantAlbert(args, albert_base_configuration)
 
     # Start model training
-    trainer = pl.Trainer(profiler=False, **train_params)
+    trainer = pl.Trainer(profiler=False, amp_level='O2', precision=16, **train_params)
     if args.do_train:
         trainer.fit(model)
     return

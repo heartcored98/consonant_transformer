@@ -125,7 +125,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--data-dir", default="/home/whwodud98/consonant_transformer/dataset",
                         help="Location of data (vocab file, corpus, etc).")
-    parser.add_argument("--input-file", default="news_comments_1.txt", type=str,
+    parser.add_argument("--input-file", default="news_comments_0.txt", type=str,
                         help="Location of data (vocab file, corpus, etc).")
     parser.add_argument("--output-dir-prefix", default="comments", type=str,
                         help="Location of data (vocab file, corpus, etc).")
@@ -161,9 +161,13 @@ def main():
     # Read dataset and shuffle
     print("Starting reading file")
     set_seed(args)
-    with open(args.input_file, 'r') as f:
-        lines = f.readlines()
-        random.shuffle(lines)
+
+    lines = []
+    for input_file in ['news_comments_0.txt', 'news_comments_1.txt', 'news_comments_2.txt', 'news_comments_3.txt']:
+        fname = os.path.join(args.data_dir, 'raw', input_file)
+        with open(fname, 'r') as f:
+            lines += f.readlines()
+    random.shuffle(lines)
     print(f"!! Read {len(lines)} lines !!")
 
     # Split dataset into train/val 

@@ -134,43 +134,43 @@ class ConsonantAlbert(pl.LightningModule):
 
         return {'loss': output[0]}
     
-    def validation_step(self, batch, batch_idx):
-        input_ids = batch['head_ids'].type(torch.LongTensor).cuda()
-        answer_label = batch['midtail_ids'].type(torch.LongTensor).cuda()  
-        attention_mask = batch['attention_masks'].type(torch.LongTensor).cuda()  
+    # def validation_step(self, batch, batch_idx):
+    #     input_ids = batch['head_ids'].type(torch.LongTensor).cuda()
+    #     answer_label = batch['midtail_ids'].type(torch.LongTensor).cuda()  
+    #     attention_mask = batch['attention_masks'].type(torch.LongTensor).cuda()  
 
         
-        output = self.model(input_ids, attention_mask=attention_mask, token_type_ids=None, answer_label=answer_label)
-        logits = output[1]
+    #     output = self.model(input_ids, attention_mask=attention_mask, token_type_ids=None, answer_label=answer_label)
+    #     logits = output[1]
 
-        #print(logits.shape, answer_label.shape)
-        labels_hat = torch.argmax(logits, dim=2)
-        labels_hat[answer_label==0]=0
+    #     #print(logits.shape, answer_label.shape)
+    #     labels_hat = torch.argmax(logits, dim=2)
+    #     labels_hat[answer_label==0]=0
         
-        val_acc = (torch.sum(answer_label==labels_hat).item() / torch.sum(answer_label!=-100).item())
+    #     val_acc = (torch.sum(answer_label==labels_hat).item() / torch.sum(answer_label!=-100).item())
 
-        output = OrderedDict({
-            "val_loss": output[0],
-            "val_acc": val_acc,
-            "batch_size": len(answer_label)
-            })
-        return output
+    #     output = OrderedDict({
+    #         "val_loss": output[0],
+    #         "val_acc": val_acc,
+    #         "batch_size": len(answer_label)
+    #         })
+    #     return output
 
 
-    def validation_epoch_end(self, outputs):
-        val_acc = np.array([x['val_acc'] for x in outputs]).mean()
-        val_loss = torch.stack([x['val_loss'] for x in outputs]).mean()
-        '''tqdm_dict = {
-                "val_loss": val_loss,
-                "val_acc": val_acc
-                }
-        result = {"progress_bar": tqdm_dict, "log": tqdm_dict, "val_loss": val_loss}'''
-        result = {"val_loss": val_loss, "val_acc": val_acc}
+    # def validation_epoch_end(self, outputs):
+    #     val_acc = np.array([x['val_acc'] for x in outputs]).mean()
+    #     val_loss = torch.stack([x['val_loss'] for x in outputs]).mean()
+    #     '''tqdm_dict = {
+    #             "val_loss": val_loss,
+    #             "val_acc": val_acc
+    #             }
+    #     result = {"progress_bar": tqdm_dict, "log": tqdm_dict, "val_loss": val_loss}'''
+    #     result = {"val_loss": val_loss, "val_acc": val_acc}
         
-        self.logger.experiment.log_metric('val_loss', self.global_step, val_loss)
-        self.logger.experiment.log_metric('val_acc', self.global_step, val_acc)
+    #     self.logger.experiment.log_metric('val_loss', self.global_step, val_loss)
+    #     self.logger.experiment.log_metric('val_acc', self.global_step, val_acc)
         
-        return result
+    #     return result
 
     def configure_optimizers(self):
         "Prepare optimizer and schedule (linear warmup and decay)"
@@ -197,11 +197,6 @@ class ConsonantAlbert(pl.LightningModule):
         optimizer.zero_grad()
         self.lr_scheduler.step()
 
-    '''def get_tqdm_dict(self):
-        avg_loss = getattr(self.trainer, "avg_loss", 0.0)
-        tqdm_dict = {"loss": "{:.3f}".format(avg_loss), "lr": self.lr_scheduler.get_last_lr()[-1]}
-        return tqdm_dict'''
-
     def train_dataloader(self):
         
         # We should filter out only directory name excluding all the *.tar.gz files
@@ -226,21 +221,21 @@ class ConsonantAlbert(pl.LightningModule):
         self.lr_scheduler = scheduler
         return data_loader
 
-    def val_dataloader(self):
+    # def val_dataloader(self):
         
-        # We should filter out only directory name excluding all the *.tar.gz files
-        data_dir = os.path.join(self.hparams.pretrain_dataset_dir, 'val') 
-        subset_list = [subset_dir for subset_dir in os.listdir(data_dir) if os.path.isdir(os.path.join(data_dir, subset_dir))]
-        val_dataset = ConcatDataset([pxt.TorchDataset(os.path.join(data_dir, subset_dir)) for subset_dir in subset_list])
+    #     # We should filter out only directory name excluding all the *.tar.gz files
+    #     data_dir = os.path.join(self.hparams.pretrain_dataset_dir, 'val') 
+    #     subset_list = [subset_dir for subset_dir in os.listdir(data_dir) if os.path.isdir(os.path.join(data_dir, subset_dir))]
+    #     val_dataset = ConcatDataset([pxt.TorchDataset(os.path.join(data_dir, subset_dir)) for subset_dir in subset_list])
 
-        # Very small dataset for debugging
-        # val_dataset = Subset(val_dataset, range(0, 1000)) # -> If you want to make 100sample toy dataset. 
+    #     # Very small dataset for debugging
+    #     # val_dataset = Subset(val_dataset, range(0, 1000)) # -> If you want to make 100sample toy dataset. 
 
-        data_loader = DataLoader(
-            val_dataset,
-            batch_size=self.hparams.train_batch_size,
-            num_workers=self.hparams.num_workers,
-            pin_memory=True,
-            shuffle=False
-        )
-        return data_loader
+    #     data_loader = DataLoader(
+    #         val_dataset,
+    #         batch_size=self.hparams.train_batch_size,
+    #         num_workers=self.hparams.num_workers,
+    #         pin_memory=True,
+    #         shuffle=False
+    #     )
+    #     return data_loader
