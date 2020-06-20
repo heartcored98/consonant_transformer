@@ -123,17 +123,19 @@ def write_examples(job_id, args, corpus_lines, phase): # Distribute N split_data
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--data-dir", default="/home/jovyan/dingbro/jy_consonant_transformer/dataset",
+    parser.add_argument("--data-dir", default="/home/whwodud98/consonant_transformer/dataset",
                         help="Location of data (vocab file, corpus, etc).")
-    parser.add_argument("--input-file", default="raw_ratings.txt", type=str,
+    parser.add_argument("--input-file", default="news_comments_0.txt", type=str,
                         help="Location of data (vocab file, corpus, etc).")
-    parser.add_argument("--output-dir-prefix", default="ratings", type=str,
+    parser.add_argument("--output-dir-prefix", default="comments", type=str,
                         help="Location of data (vocab file, corpus, etc).")
-    parser.add_argument("--ngram", default=3, type=int,
+    parser.add_argument("--ngram", default=1, type=int,
                         help="Number of n-gram for consonant tuples")
+    parser.add_argument("--train-ratio", default=0.9, type=float,
+                        help="train-val ratio")
     parser.add_argument("--max-char-length", default=100, type=int,
                       help="Number of tokens per example.")
-    parser.add_argument("--num-processes", default=4, type=int,
+    parser.add_argument("--num-processes", default=16, type=int,
                         help="Parallelize across multiple processes.")
     parser.add_argument("--seed", default=777, type=int,
                         help="Initial Seed")
@@ -165,8 +167,8 @@ def main():
     print(f"!! Read {len(lines)} lines !!")
 
     # Split dataset into train/val 
-    train_lines = lines[:int(len(lines) * 0.9)]
-    val_lines = lines[int(len(lines) * 0.1):]
+    train_lines = lines[:int(len(lines) * args.train_ratio)]
+    val_lines = lines[int(len(lines) * args.train_ratio):]
 
     print("Ngram: ", args.ngram)
     print("Max char lenght: ", args.max_char_length)

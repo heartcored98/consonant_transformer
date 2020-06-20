@@ -1,6 +1,5 @@
 import argparse
 import datetime
-import logging
 import os
 import shutil
 import sys
@@ -18,9 +17,6 @@ from pytorch_lightning import seed_everything
 from consonant.model.modeling import ConsonantAlbert
 
 
-logger = logging.getLogger(__name__)
-
-
 def make_parser():    
     parser = argparse.ArgumentParser()
 
@@ -30,29 +26,29 @@ def make_parser():
     parser.add_argument('--hidden_size', default=512, type=int)
     parser.add_argument('--intermediate_size', default=2048, type=int)
     parser.add_argument('--num_attention_heads', default=8, type=int)
+    parser.add_argument('--num_hidden_layers', default=12, type=int)
+    parser.add_argument('--num_hidden_groups', default=1, type=int)
     parser.add_argument('--vocab_size', default=17579, type=int) # quad-gram : 456979 / tri-gram : 17579 / bi-gram : 679 / uni-gram : 29 
     parser.add_argument('--output_vocab_size', default=589, type=int)
     parser.add_argument('--type_vocab_size', default=1, type=int)
     parser.add_argument('--classifier_dropout_prob', default=0.1, type=float)
 
     # train/validation configuration
-    parser.add_argument('--train_batch_size', default=128, type=int)
+    parser.add_argument('--train_batch_size', default=390, type=int)
     parser.add_argument('--learning_rate', default=3e-4, type=float)
     parser.add_argument('--adam_epsilon', default=1e-6, type=float)
     parser.add_argument('--warmup_steps', default=10000, type=int)
     parser.add_argument('--weight_decay', default=0.01, type=float)
     parser.add_argument('--max_grad_norm', default=1.0, type=float)
     parser.add_argument('--max_steps', default=1000000, type=int)
-    parser.add_argument('--save_checkpoint_steps', default=1000, type=int)
-    parser.add_argument('--validation_step', default=1000, type=int)
-    parser.add_argument('--save_log_steps', default=1, type=int)
-    parser.add_argument('--grad_accum_steps', type=int, default=1,
-        help='Number of updates steps to accumulate before performing a backward/update pass.',
-    )
+    parser.add_argument('--save_checkpoint_steps', default=25000, type=int)
+    parser.add_argument('--validation_step', default=20000, type=int)
+    parser.add_argument('--save_log_steps', default=100, type=int)
+    parser.add_argument('--grad_accum_steps', type=int, default=1)
 
     # experiment configuration
-    parser.add_argument('--exp_name', default='baseline', type=str)
-    parser.add_argument('--pretrain_dataset_dir', default='/home/jovyan/dingbro/consonant_transformer/dataset/processed/ratings_3_100', type=str)
+    parser.add_argument('--exp_name', default='comment_baseline_b390', type=str)
+    parser.add_argument('--pretrain_dataset_dir', default='/home/whwodud98/consonant_transformer/dataset/processed/comments_3_100', type=str)
     parser.add_argument('--output_dir', default='output', type=str)
     parser.add_argument('--gpus', default='1', type=str)
     parser.add_argument('--n_gpu', default=1, type=int)
@@ -91,13 +87,14 @@ def main():
 
     # Setup for neptune logger
     neptune_api_key = os.environ['NEPTUNE_API_TOKEN']
-    neptune_project_name = 'kboseong/consonant'
+    neptune_project_name = 'kevinjo/cs372'
     neptune_experiment_name = args.exp_name
     neptune_logger = NeptuneLogger(
         api_key=neptune_api_key,
         project_name=neptune_project_name,
         experiment_name=neptune_experiment_name,
         tags=["torch", "pretrain"],
+        params=vars(args)
     )
 
     # Setup for pytorch-lightning params
@@ -119,6 +116,8 @@ def main():
         hidden_size=args.hidden_size,
         embedding_size=args.embedding_size,
         num_attention_heads=args.num_attention_heads,
+        num_hidden_layers=args.num_hidden_layers,
+        num_hidden_groups=args.num_hidden_groups,
         intermediate_size=args.intermediate_size,
         vocab_size = args.vocab_size,
         max_position_embeddings= args.max_position_embeddings,
@@ -126,8 +125,7 @@ def main():
         type_vocab_size = args.type_vocab_size,
     )
     model = ConsonantAlbert(args, albert_base_configuration)
-    logger.info('Albert config %s', albert_base_configuration)
-    logger.info('Training args %s', args)
+
 
     # Start model training
     trainer = pl.Trainer(profiler=False, **train_params)

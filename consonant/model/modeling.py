@@ -1,24 +1,24 @@
 #!/usr/bin/env python
 # coding: utf-8
+import argparse
+from collections import OrderedDict
+import os
+import time
 
-# In[35]:
 
-
-import transformers
+import numpy as np
+import torch
 import torch.nn as nn
+from torch.nn import CrossEntropyLoss
+from torch.utils.data import DataLoader, ConcatDataset, Subset
+import transformers
 from transformers import AlbertModel, AlbertConfig, get_linear_schedule_with_warmup
 from transformers.modeling_bert import ACT2FN
-import torch
-from .optimization import Lamb
 import pytorch_lightning as pl
-import argparse
-import os
-from torch.utils.data import DataLoader, ConcatDataset, Subset
 import pyxis.torch as pxt
-from torch.nn import CrossEntropyLoss
-from collections import OrderedDict
-import time
-import numpy as np
+
+
+from .optimization import Lamb
 
 
 class AlbertConsonantHead(nn.Module):
@@ -83,10 +83,21 @@ class ConsonantAlbert(pl.LightningModule):
 
     def training_step(self, batch, batch_idx):
         # Log steps_per_sec every 100 steps
+
+        input_ids = batch['head_ids'].type(torch.LongTensor).cuda()
+        answer_label = batch['midtail_ids'].type(torch.LongTensor).cuda()  
+        attention_mask = batch['attention_masks'].type(torch.LongTensor).cuda()  
+        
+        # Ingnore midtail label with empty character
+        answer_label[answer_label==0]=-100
+
+        output = self.model(input_ids, attention_mask=attention_mask, token_type_ids=None, answer_label=answer_label)
+        self.logger.experiment.log_metric('train_loss', self.global_step, output[0].item())
+
+        # Log intermediate value
         if self.global_step == 0:
             self.last_time = time.time()
             time.sleep(1)
-
         elif self.global_step % self.hparams.save_log_steps == 0:
             steps_per_sec = self.hparams.save_log_steps / (time.time() - self.last_time)
             examples_per_sec = steps_per_sec * self.hparams.train_batch_size
@@ -95,22 +106,17 @@ class ConsonantAlbert(pl.LightningModule):
             self.logger.experiment.log_metric('learning_rate', self.global_step, self.lr_scheduler.get_last_lr()[-1])
             self.last_time = time.time()
 
-        input_ids = batch['head_ids'].type(torch.LongTensor).cuda()
-        answer_label = batch['midtail_ids'].type(torch.LongTensor).cuda()  
-        attention_mask = batch['attention_masks'].type(torch.LongTensor).cuda()  
-        
-        #self.model = self.model.cuda()
-        output = self.model(input_ids, attention_mask=attention_mask, token_type_ids=None, answer_label=answer_label)
-        # output = self.model(input_ids, attention_mask, token_type_ids, masked_lm_labels)
+            logits = output[1]
+            labels_hat = torch.argmax(logits, dim=2)
+            train_acc = (torch.sum(answer_label == labels_hat).item() / torch.sum(answer_label != -100).item())
+            self.logger.experiment.log_metric('train_acc', self.global_step, train_acc)
 
-        self.logger.experiment.log_metric('Total_loss', self.global_step, output[0].item())
-
+            
         # Save model and optimizer
         if self.global_step % self.hparams.save_checkpoint_steps == 0 and self.global_step != 0:
             
             ckpt = f'ckpt-{self.global_step:07}.bin'
             ckpt_dir = os.path.join(self.hparams.output_dir, ckpt)
-            
             torch.save( {'model_state_dict': self.model.state_dict(), 
                          'optimizer_state_dict': self.opt.state_dict(),
                          'scheduler_state_dict' : self.lr_scheduler.state_dict(),
@@ -119,10 +125,10 @@ class ConsonantAlbert(pl.LightningModule):
 
         # Save model to neptune.ai server. 
         # Try-catch HTTPConnection Error
-        try:   
-            self.logger.log_artifact(ckpt_dir, ckpt_dir)
-        except:
-            pass
+            try:   
+                self.logger.log_artifact(ckpt_dir, ckpt_dir)
+            except:
+                pass
 
         return {'loss': output[0]}
     
