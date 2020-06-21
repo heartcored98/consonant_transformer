@@ -2,11 +2,8 @@ numpy
 pandas
 transformers
 torch # https://download.pytorch.org/whl/cu100/torch-1.4.0%2Bcu100-cp36-cp36m-linux_x86_64.whl
-cython
-kss
 tqdm
 matplotlib
-pytorch
 pytorch-lightning
 neptune-client
 psutil # for monitoring
