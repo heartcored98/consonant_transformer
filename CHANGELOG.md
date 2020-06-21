@@ -1,3 +1,10 @@
+Upcoming  
+- save experiment config with the ckpt  
+- dummy dataset with dummy processed dataset
+
+v0.2.1  
+- Add batch/single inference feature  
+
 v0.2.0  
 - CrossEntropyLoss ignore whitespace (prevent imbalance label)
 - half-precision with amp applied  
