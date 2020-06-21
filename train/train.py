@@ -48,8 +48,7 @@ def make_parser():
     parser.add_argument('--grad_accum_steps', type=int, default=1)
 
     # experiment configuration
-    parser.add_argument('--exp_name', default='comment_baseline_b780', type=str)
-    parser.add_argument('--pretrain_dataset_dir', default='/home/whwodud98/consonant_transformer/dataset/processed/comments_3_100', type=str)
+    parser.add_argument('--exp_name', default='baseline_b780_n1', type=str)
     parser.add_argument('--output_dir', default='output', type=str)
     parser.add_argument('--gpus', default='0', type=str)
     parser.add_argument('--n_gpu', default=1, type=int)
@@ -60,7 +59,9 @@ def make_parser():
     parser.add_argument('--benchmark', default=False, type=bool)
     args = parser.parse_args()
 
-    args.vocab_size = len(NGRAMTokenizer(args.ngram).head2id) # quad-gram : 456979 / tri-gram : 17579 / bi-gram : 679 / uni-gram : 29 
+    args.vocab_size = len(NGRAMTokenizer(args.ngram).head2id)  # quad-gram : 456979 / tri-gram : 17579 / bi-gram : 679 / uni-gram : 29 
+    args.pretrain_dataset_dir=f'/home/whwodud98/consonant_transformer/dataset/processed/comments_{args.ngram}_{args.max_position_embeddings}'
+
     return args
 
 

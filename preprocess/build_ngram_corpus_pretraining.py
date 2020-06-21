@@ -129,13 +129,13 @@ def main():
                         help="Location of data (vocab file, corpus, etc).")
     parser.add_argument("--output-dir-prefix", default="comments", type=str,
                         help="Location of data (vocab file, corpus, etc).")
-    parser.add_argument("--ngram", default=3, type=int,
+    parser.add_argument("--ngram", default=1, type=int,
                         help="Number of n-gram for consonant tuples")
     parser.add_argument("--train-ratio", default=0.9, type=float,
                         help="train-val ratio")
     parser.add_argument("--max-char-length", default=100, type=int,
                       help="Number of tokens per example.")
-    parser.add_argument("--num-processes", default=16, type=int,
+    parser.add_argument("--num-processes", default=14, type=int,
                         help="Parallelize across multiple processes.")
     parser.add_argument("--seed", default=777, type=int,
                         help="Initial Seed")
