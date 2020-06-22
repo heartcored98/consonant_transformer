@@ -57,9 +57,8 @@ class Consonant(nn.Module):
         
         outputs = (prediction_scores, ) + outputs[2:]  
 
-        answer_label[answer_label==0]=-100
-
-        if answer_label is not None :
+        if answer_label is not None:
+            answer_label[answer_label==0]=-100
             loss_fct = CrossEntropyLoss()
             consonant_loss = loss_fct(prediction_scores.view(-1, self.config.output_vocab_size), answer_label.view(-1))
             total_loss = consonant_loss
