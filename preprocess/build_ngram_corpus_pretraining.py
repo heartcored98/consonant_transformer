@@ -123,7 +123,7 @@ def write_examples(job_id, args, corpus_lines, phase): # Distribute N split_data
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--data-dir", default="/home/whwodud98/consonant_transformer/dataset",
+    parser.add_argument("--data-dir", default="/home/ubuntu/consonant_transformer/dataset",
                         help="Location of data (vocab file, corpus, etc).")
     parser.add_argument("--input-file", default="news_comments_0.txt", type=str,
                         help="Location of data (vocab file, corpus, etc).")
