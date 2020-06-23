@@ -14,7 +14,7 @@ from pytorch_lightning.profiler import PassThroughProfiler, AdvancedProfiler
 from pytorch_lightning import seed_everything
 
 
-from consonant.model.modeling import ConsonantAlbert
+from consonant.model.base_model import ConsonantAlbert
 from consonant.model.tokenization import NGRAMTokenizer
 
 
