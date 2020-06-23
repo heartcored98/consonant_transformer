@@ -18,3 +18,11 @@ usr/bin/curl  http://127.0.0.1:8080/predictions/medium_consonant -T sample.txt
 ```
 /usr/bin/curl -H "Content-Type: application/json"   http://127.0.0.1:8080/predictions/medium_consonant -d '{"text":"안녕하세요? 진짜 기분이 너무 너무 안 좋아 어쩌지 먹고 싶다"}'
 ```
+
+```
+/usr/bin/curl -H "Content-Type: application/json"   http://ec2-13-124-68-75.ap-northeast-2.compute.amazonaws.com:8080/predictions/medium_consonant -d '{"text":"안녕하세요? 진짜 기분이 너 무 너무 안 좋아 어쩌지 먹고 싶다"}'
+```  
+
+```
+docker run -it -p 8080:8080 -p 8081:8081 whwodud98/consonant:latest
+```
