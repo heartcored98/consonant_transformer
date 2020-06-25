@@ -1,5 +1,5 @@
 {
     "save_mode": "pretrained",
     "max_length": "100",
-    "ngram": 1
+    "ngram": 3
 }

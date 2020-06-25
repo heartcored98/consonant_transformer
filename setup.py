@@ -17,9 +17,7 @@ setup(name='consonant',
       description='consonant predictor',
  
       packages=find_packages(exclude=['dataset', 'deploy', 'examples', 'output', 'preprocess', 'train']),
- 
-      long_description=open('README.md').read(),
- 
+  
       zip_safe=False,
  
  )
