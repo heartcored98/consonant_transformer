@@ -129,7 +129,7 @@ def main():
     model = ConsonantAlbert(args, albert_base_configuration)
 
     # Start model training
-    trainer = pl.Trainer(profiler=False, amp_level='O2', precision=16, **train_params)
+    trainer = pl.Trainer(auto_lr_find=False, profiler=False, amp_level='O2', precision=16, **train_params)
     if args.do_train:
         trainer.fit(model)
     return
