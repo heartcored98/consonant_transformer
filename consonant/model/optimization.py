@@ -3,10 +3,9 @@
 import collections
 import math
 
-import torch
-#from tensorboardX import SummaryWriter
-from torch.optim import Optimizer
 
+import torch
+from torch.optim import Optimizer
 
 
 class Lamb(Optimizer):
@@ -107,3 +106,4 @@ class Lamb(Optimizer):
                 p.data.add_(-step_size * trust_ratio, adam_step)
 
         return loss
+        

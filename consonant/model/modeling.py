@@ -17,7 +17,6 @@ class AlbertConsonantHead(nn.Module):
         self.dense = nn.Linear(config.hidden_size, config.embedding_size)
         self.decoder = nn.Linear(config.embedding_size, config.output_vocab_size)
         self.activation = ACT2FN[config.hidden_act]
-
         self.decoder.bias = self.bias
 
     def forward(self, hidden_states):
@@ -25,10 +24,9 @@ class AlbertConsonantHead(nn.Module):
         hidden_states = self.activation(hidden_states)
         hidden_states = self.LayerNorm(hidden_states)
         hidden_states = self.decoder(hidden_states)
-
         prediction_scores = hidden_states
-
         return prediction_scores
+
 
 class Consonant(nn.Module):
     def __init__(self, config):
@@ -44,11 +42,9 @@ class Consonant(nn.Module):
         
         outputs = (prediction_scores, ) + outputs[2:]  
 
-
         if answer_label is not None :
-            answer_label[answer_label==0]=-100
+            answer_label[answer_label==0]=-100 # ignore whitespace in the loss
             loss_fct = CrossEntropyLoss()
             consonant_loss = loss_fct(prediction_scores.view(-1, self.config.output_vocab_size), answer_label.view(-1))
-            total_loss = consonant_loss
-            outputs = (total_loss,) + outputs
+            outputs = (consonant_loss,) + outputs
         return outputs  
