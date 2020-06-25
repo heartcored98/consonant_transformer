@@ -7,7 +7,8 @@ torch-model-archiver --model-name medium_consonant --version 1.0 --serialized-fi
 ```
 
 ```
-torchserve --start --model-store ./deploy/model_store --models medium_consonant=medium_consonant.mar
+torchserve --start --ts-config ./deploy/config.properties --model-store ./deploy/model_store --models medium_consonant=medium_consonant.mar
+
 ```  
 
 ```
