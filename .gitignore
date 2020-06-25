@@ -4,7 +4,13 @@
 data
 *.pyc
 *.bin
+*.mar
 *.ckpt
 
 dataset/*
 output/*
+
+logs
+dist
+build
+*egg-info*

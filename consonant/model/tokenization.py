@@ -5,7 +5,7 @@ import numpy as np
 import torch
 
 
-from consonant.model.jamo import join_jamos
+from consonant.model.jamo import join_jamos, split_syllable_char
 
 
 class NGRAMTokenizer():
@@ -115,19 +115,21 @@ class NGRAMTokenizer():
         Returns:
             list: [description]
         """
+        sent = " ".join(sent.split()) # Remove duplicated whitespace
         heads = list()
         midtails = list()
 
         for i, keyword in enumerate(sent[:max_char_length-2]): # truncate with max_char_length-2 due to [CLS] and [SEP] tokens
             # 한글 여부 check 후 분리
             if re.match('.*[ㄱ-ㅎㅏ-ㅣ가-힣]+.*', keyword) is not None:
-                char_code = ord(keyword) - self.BASE_CODE
-                head = int(char_code / self.HEAD)
-                heads.append(self.head_list[head])
+                head, mid, tail = split_syllable_char(keyword)
+                heads.append(head)
 
-                mid = int((char_code - (self.HEAD * head)) / self.MID)
-                tail = int((char_code - (self.HEAD * head) - (self.MID * mid)))
-                midtails.append((self.mid_list[mid], self.tail_list[tail]))
+                if mid is None:
+                    midtails.append('')
+                else:
+                    tail = '' if tail is None else tail
+                    midtails.append((mid, tail))
 
             else: # For non-korean character, put character on initial consonant and put @ for mid/last consonant.
                 heads.append(keyword)
