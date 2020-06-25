@@ -60,7 +60,7 @@ def make_parser():
     args = parser.parse_args()
 
     args.vocab_size = len(NGRAMTokenizer(args.ngram).head2id)  # quad-gram : 456979 / tri-gram : 17579 / bi-gram : 679 / uni-gram : 29 
-    args.pretrain_dataset_dir=f'/home/whwodud98/consonant_transformer/dataset/processed/comments_{args.ngram}_{args.max_position_embeddings}'
+    args.pretrain_dataset_dir=f'/home/ubuntu/consonant_transformer/dataset/processed/comments_{args.ngram}_{args.max_position_embeddings}'
 
     return args
 
