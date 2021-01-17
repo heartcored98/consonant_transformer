@@ -20,10 +20,36 @@ usr/bin/curl  http://127.0.0.1:8080/predictions/medium_consonant -T sample.txt
 /usr/bin/curl -H "Content-Type: application/json"   http://127.0.0.1:8080/predictions/medium_consonant -d '{"text":"안녕하세요? 진짜 기분이 너무 너무 안 좋아 어쩌지 먹고 싶다"}'
 ```
 
-```
-/usr/bin/curl -H "Content-Type: application/json"   http://ec2-13-124-68-75.ap-northeast-2.compute.amazonaws.com:8080/predictions/medium_consonant -d '{"text":"안녕하세요? 진짜 기분이 너 무 너무 안 좋아 어쩌지 먹고 싶다"}'
-```  
+### Docker Build  
 
 ```
-docker run -it -p 8080:8080 -p 8081:8081 whwodud98/consonant:latest
+docker build -t whwodud98/consonant:<model_tag> .
 ```
+
+### Push to DockerHub
+
+```
+docker push whwodud98/consonant:<model_tag>
+```
+
+### Run Inference Docker Image    
+
+Currently, `medium` and `extended_base` tags are supported. 
+
+```
+docker run -it -p 8080:8080 -p 8081:8081 whwodud98/consonant:<model_tag>
+```
+
+### HTTP Prediciton 
+```
+/usr/bin/curl -H "Content-Type: application/json"   http://ec2-13-124-68-75.ap-northeast-2.compute.amazonaws.com:8080/predictions/medium_consonant -d '{"text":"안녕하세요? 진짜 기분이 너 무 너무 안 좋아 어쩌지 먹고 싶다"}'
+```   
+
+
+### TO-DO  
+
+- [ ] Update model part with transformers v4 (currently working with v2)  
+- [ ] Re-train model with 모두의 말뭉치 dataset  
+- [ ] Deploy to Ainize Service  
+- [ ] Support partially-filled consonants. (e.g. ㅇㄴㅎㅅㅇ 오늘 하늘이 ㄴㅁ ㅇㅃㅇ!)  
+- [ ] Document datset pre-processing procedure  
