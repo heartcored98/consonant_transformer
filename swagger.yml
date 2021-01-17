@@ -1,0 +1,43 @@
+openapi: 3.0.0   # Open api version
+
+info:   # Set basic infomation
+  title: your-swagger-example
+  version: 0.1.1
+
+servers:   # Set your server endpoint
+  - url: https://master-consonant-transformer-heartcored98.endpoint.ainize.ai
+
+paths:
+  /predictions/medium_consonant:   # GET method path
+    post:
+      summary: Predict missing consonants 
+      description: Post with the sequences of the initial korean consonants which you want to decode. (e.g. ㅎㅇ ㅎㅇ ㅂㄱㅇ ㄴㄴ ㄴㄱ ㅈㅇ)
+
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                text:
+                  type: string
+              
+      responses:   # Set response
+        '200':
+          description: Successful Response
+          content:   # Descriptions of potential response payloads (optional)
+            application/json:
+              schema:   # Set data types
+                type: object
+                properties:
+                  predict:
+                    type: string
+        '400':
+          description: Bad Request Error
+        '500':
+          description: Server-side Error
+        '503':
+          description: Server is not ready
+        default: 
+          description: Unexpected Error 
