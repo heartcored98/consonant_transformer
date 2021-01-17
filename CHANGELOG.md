@@ -1,6 +1,6 @@
-Upcoming  
-- save experiment config with the ckpt  
-- dummy dataset with dummy processed dataset
+v0.2.2  
+- Fix huggingface/transfomers-pytorch-cpu version on Dockerbuild (since transformer v4 does not compatible with v2)  
+- Add docker build, push, inference instruction  
 
 v0.2.1  
 - Add batch/single inference feature  
